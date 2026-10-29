@@ -93,7 +93,8 @@
 <main>
     <section class="card">
         <h2>My Student Records</h2>
-        <button onclick="loadStudents()">Load Students</button>
+        <button class="green" onclick="loadStudents()">Step 13: Refresh My Records / Display Received Record</button>
+        <p class="message">After Student A sends a practice record, Student B clicks this button to retrieve and display records saved in Student B's database. The Source field identifies imported or external records.</p>
         <div id="studentList">Loading records...</div>
     </section>
 
@@ -149,7 +150,18 @@
     </section>
 
     <section class="card">
-        <h2>Classmate Render Records</h2>
+        <h2>Step 10–11: Retrieve and Save One Partner Record</h2>
+        <p>Connect to a partner's public Flask API to view their records and selectively save them into your local SQLite database.</p>
+        <label for="partnerUrl">Partner Flask API Render URL</label>
+        <input type="url" id="partnerUrl" value="https://jezalyn-indic.onrender.com/" placeholder="https://partner-project.onrender.com">
+        <button class="green" id="partnerFetchButton" onclick="loadPartnerRecords()">Fetch Partner Records</button>
+        <p id="partnerMessage" class="message" aria-live="polite"></p>
+        <div id="partnerResults"></div>
+        <div id="partnerRecordDetails" class="record" hidden></div>
+    </section>
+
+    <section class="card">
+        <h2>Step 10–11: Retrieve and Save Classmate Records</h2>
         <p>
             Enter your classmate's public Render service URL to view
             records provided by their student API.
@@ -158,6 +170,7 @@
         <input
             type="url"
             id="renderUrl"
+            value="https://jezalyn-indic.onrender.com/"
             placeholder="https://classmate-project.onrender.com"
         >
         <button class="green" id="fetchButton" onclick="fetchClassmate()">
@@ -165,6 +178,15 @@
         </button>
         <p id="classmateMessage" class="message" aria-live="polite"></p>
         <div id="classmateResults"></div>
+    </section>
+
+    <section class="card">
+        <h2>Step 12: Send Practice Record to Student B</h2>
+        <p>The URL is prefilled with Jezalyn's Render URL. Click the button to send the EXT-001 practice record to Student B's <code>/api/students</code> POST endpoint. For Step 14, Student B must enter Student A's Render URL and repeat the same steps in reverse.</p>
+        <button class="green" id="sendPracticeButton" onclick="sendPracticeRecord()">
+            Send Practice Record
+        </button>
+        <p id="sendPracticeMessage" class="message" aria-live="polite"></p>
     </section>
 </main>
 
@@ -195,7 +217,8 @@
             ["Name", s.name],
             ["Program", s.program],
             ["Year", s.year],
-            ["Section", s.section]
+            ["Section", s.section],
+            ["Source", s.source || "Local"]
         ]) {
             const p = document.createElement("p");
             const strong = document.createElement("strong");
@@ -223,6 +246,10 @@
         try {
             const students = await api("/api/students");
             list.replaceChildren();
+            if (!Array.isArray(students)) {
+                list.textContent = "Unexpected response from /api/students. Check your Flask API response.";
+                return;
+            }
             if (!students.length) {
                 list.textContent = "No student records found.";
                 return;
@@ -413,7 +440,8 @@
                 ["name", "Name"],
                 ["program", "Program"],
                 ["year", "Year"],
-                ["section", "Section"]
+                ["section", "Section"],
+                ["source", "Source"]
             ];
 
             const thead = document.createElement("thead");
@@ -423,6 +451,9 @@
                 th.textContent = label;
                 header.appendChild(th);
             });
+            const actionsHeader = document.createElement("th");
+            actionsHeader.textContent = "Actions";
+            header.appendChild(actionsHeader);
             thead.appendChild(header);
             table.appendChild(thead);
 
@@ -436,6 +467,39 @@
                     td.textContent = value == null ? "" : String(value);
                     tr.appendChild(td);
                 });
+
+                const actionCell = document.createElement("td");
+                const saveButton = document.createElement("button");
+                saveButton.className = "green";
+                saveButton.textContent = "Save This Record to My Database";
+                saveButton.onclick = async () => {
+                    saveButton.disabled = true;
+                    saveButton.textContent = "Saving...";
+                    try {
+                        const student = {
+                            student_id: record.student_id,
+                            name: record.name,
+                            program: record.program,
+                            year: record.year,
+                            section: record.section,
+                            source: record.source || new URL(url).hostname
+                        };
+                        const saved = await api("/import-student", {
+                            method: "POST",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify(student)
+                        });
+                        msg.textContent = saved.message + " Source: " + saved.source + ". Local database ID: " + saved.id;
+                        saveButton.textContent = "Saved";
+                        await loadStudents();
+                    } catch (e) {
+                        msg.textContent = e.message;
+                        saveButton.disabled = false;
+                        saveButton.textContent = "Save This Record to My Database";
+                    }
+                };
+                actionCell.appendChild(saveButton);
+                tr.appendChild(actionCell);
                 tbody.appendChild(tr);
             });
 
@@ -447,6 +511,147 @@
         } finally {
             button.disabled = false;
             button.textContent = "Fetch Classmate Records";
+        }
+    }
+
+    async function loadPartnerRecords() {
+        const url = document.getElementById("partnerUrl").value.trim();
+        const msg = document.getElementById("partnerMessage");
+        const results = document.getElementById("partnerResults");
+        const details = document.getElementById("partnerRecordDetails");
+        const button = document.getElementById("partnerFetchButton");
+
+        msg.textContent = "";
+        results.replaceChildren();
+        details.replaceChildren();
+        details.hidden = true;
+
+        if (!url) {
+            msg.textContent = "Please enter your partner's Render URL.";
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "Fetching...";
+        msg.textContent = "Connecting to the partner Flask API...";
+
+        try {
+            const data = await api("/partner-records?url=" + encodeURIComponent(url));
+            msg.textContent = "Retrieved " + data.count + " partner record(s) from " + data.source + ".";
+
+            if (!Array.isArray(data.records)) {
+                results.textContent = "The partner API response did not contain a records list.";
+                return;
+            }
+            if (!data.records.length) {
+                results.textContent = "No partner records found.";
+                return;
+            }
+
+            data.records.forEach((record, index) => {
+                const card = document.createElement("div");
+                card.className = "record";
+                const title = document.createElement("h3");
+                title.textContent = record.name || record.student_id || ("Partner Record " + (index + 1));
+                card.appendChild(title);
+
+                for (const key of ["student_id", "program", "year", "section", "source"]) {
+                    if (record[key] !== undefined && record[key] !== null) {
+                        const p = document.createElement("p");
+                        const strong = document.createElement("strong");
+                        strong.textContent = key.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()) + ": ";
+                        p.append(strong, document.createTextNode(String(record[key])));
+                        card.appendChild(p);
+                    }
+                }
+
+                const viewButton = document.createElement("button");
+                viewButton.textContent = "View";
+                viewButton.onclick = () => {
+                    details.replaceChildren();
+                    const heading = document.createElement("h3");
+                    heading.textContent = "Partner Record Details";
+                    details.appendChild(heading);
+                    Object.entries(record).forEach(([key, value]) => {
+                        const p = document.createElement("p");
+                        const strong = document.createElement("strong");
+                        strong.textContent = key.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()) + ": ";
+                        p.append(strong, document.createTextNode(
+                            value !== null && typeof value === "object" ? JSON.stringify(value) : String(value ?? "")
+                        ));
+                        details.appendChild(p);
+                    });
+                    details.hidden = false;
+                    details.scrollIntoView({behavior: "smooth", block: "nearest"});
+                };
+
+                const saveButton = document.createElement("button");
+                saveButton.className = "green";
+                saveButton.textContent = "Save to My Database";
+                saveButton.onclick = async () => {
+                    saveButton.disabled = true;
+                    saveButton.textContent = "Saving...";
+                    try {
+                        const student = {
+                            student_id: record.student_id,
+                            name: record.name,
+                            program: record.program,
+                            year: record.year,
+                            section: record.section
+                        };
+                        const saved = await api("/import-student", {
+                            method: "POST",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify(student)
+                        });
+                        msg.textContent = saved.message + " Local database ID: " + saved.id;
+                        saveButton.textContent = "Saved";
+                        await loadStudents();
+                    } catch (e) {
+                        msg.textContent = e.message;
+                        saveButton.disabled = false;
+                        saveButton.textContent = "Save to My Database";
+                    }
+                };
+                card.append(viewButton, saveButton);
+                results.appendChild(card);
+            });
+        } catch (e) {
+            msg.textContent = e.message;
+        } finally {
+            button.disabled = false;
+            button.textContent = "Fetch Partner Records";
+        }
+    }
+
+    async function sendPracticeRecord() {
+        const button = document.getElementById("sendPracticeButton");
+        const message = document.getElementById("sendPracticeMessage");
+
+        button.disabled = true;
+        button.textContent = "Sending...";
+        message.textContent = "Sending practice record to your configured partner...";
+
+        try {
+            const url = document.getElementById("partnerUrl").value.trim();
+            if (!url) {
+                throw new Error("Enter your partner's Render URL in the Partner Records field first.");
+            }
+            const result = await api("/send-practice-record", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({url})
+            });
+            const responseText = typeof result.response === "string"
+                ? result.response
+                : JSON.stringify(result.response || {});
+            message.textContent = (result.message || "Partner API responded.")
+                + " HTTP status: " + result.status_code + " — " + responseText;
+        } catch (error) {
+            message.textContent = error.message;
+        } finally {
+            button.disabled = false;
+            button.textContent = "Send Practice Record";
         }
     }
 
