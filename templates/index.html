@@ -56,6 +56,44 @@
             grid-template-columns: 1fr 1fr;
             gap: 12px;
         }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+        }
+        .dashboard-panel {
+            min-width: 0;
+            background: #f7fbff;
+            border: 1px solid #dce8f2;
+            border-radius: 10px;
+            padding: 14px;
+        }
+        .dashboard-panel h3 { margin-top: 0; color: #1768ac; }
+        .count-pill {
+            display: inline-block;
+            border-radius: 20px;
+            background: #d9f3ef;
+            color: #116a65;
+            padding: 4px 10px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .small-record {
+            background: white;
+            border: 1px solid #dce8f2;
+            border-radius: 7px;
+            padding: 10px;
+            margin-top: 8px;
+            overflow-wrap: anywhere;
+        }
+        .small-record p { margin: 4px 0; }
+        .radio-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+        .radio-line input { width: auto; margin-top: 4px; }
+        .dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .dashboard-actions button { margin-right: 0; }
+        .dashboard-status { min-height: 24px; }
+
         .full { grid-column: 1 / -1; }
         .record {
             background: #f3f8fc;
@@ -77,6 +115,9 @@
             text-align: center;
             padding: 20px;
         }
+        @media (max-width: 760px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
         @media (max-width: 600px) {
             .grid { grid-template-columns: 1fr; }
             .full { grid-column: auto; }
@@ -91,10 +132,38 @@
 </header>
 
 <main>
+
+    <section class="card" id="integrationDashboard">
+        <h2>Integration Dashboard</h2>
+        <div class="dashboard-actions">
+            <button type="button" class="green" onclick="refreshIntegrationDashboard()">Refresh Dashboard</button>
+        </div>
+        <div id="dashboardStatus" class="message dashboard-status" aria-live="polite"></div>
+        <div class="dashboard-grid">
+            <div class="dashboard-panel">
+                <h3>My Local Records</h3>
+                <span class="count-pill" id="localCount">0 records</span>
+                <div id="dashboardLocalRecords">No local records loaded.</div>
+            </div>
+            <div class="dashboard-panel">
+                <h3>Imported Records</h3>
+                <span class="count-pill" id="importedCount">0 records</span>
+                <div id="dashboardImportedRecords">No imported records loaded.</div>
+            </div>
+            <div class="dashboard-panel">
+                <h3>Partner Records</h3>
+                <label for="dashboardPartnerUrl">Partner Render URL</label>
+                <input type="url" id="dashboardPartnerUrl" value="https://jezalyn-indic.onrender.com/" placeholder="https://partner-project.onrender.com">
+                <button type="button" class="green" id="dashboardFetchButton" onclick="fetchDashboardPartnerRecords()">Retrieve Partner Records</button>
+                <span class="count-pill" id="remoteCount">0 records</span>
+                <div id="dashboardPartnerRecords">No partner records loaded.</div>
+                <button type="button" class="green" id="dashboardSaveButton" onclick="saveSelectedDashboardPartnerRecord()" disabled>Save Selected Remote Record Locally</button>
+            </div>
+        </div>
+    </section>
     <section class="card">
         <h2>My Student Records</h2>
-        <button class="green" onclick="loadStudents()">Step 13: Refresh My Records / Display Received Record</button>
-        <p class="message">After Student A sends a practice record, Student B clicks this button to retrieve and display records saved in Student B's database. The Source field identifies imported or external records.</p>
+        <button class="green" onclick="loadStudents()">Refresh My Records</button>
         <div id="studentList">Loading records...</div>
     </section>
 
@@ -149,42 +218,19 @@
         <p id="crudMessage" class="message" aria-live="polite"></p>
     </section>
 
-    <section class="card">
-        <h2>Step 10–11: Retrieve and Save One Partner Record</h2>
-        <p>Connect to a partner's public Flask API to view their records and selectively save them into your local SQLite database.</p>
-        <label for="partnerUrl">Partner Flask API Render URL</label>
-        <input type="url" id="partnerUrl" value="https://jezalyn-indic.onrender.com/" placeholder="https://partner-project.onrender.com">
-        <button class="green" id="partnerFetchButton" onclick="loadPartnerRecords()">Fetch Partner Records</button>
-        <p id="partnerMessage" class="message" aria-live="polite"></p>
-        <div id="partnerResults"></div>
-        <div id="partnerRecordDetails" class="record" hidden></div>
-    </section>
-
-    <section class="card">
-        <h2>Step 10–11: Retrieve and Save Classmate Records</h2>
-        <p>
-            Enter your classmate's public Render service URL to view
-            records provided by their student API.
-        </p>
-        <label for="renderUrl">Classmate's Render URL</label>
+    <section class="card" id="step12-send-practice" style="border-top: 6px solid #168b85; background: #faffff;">
+        <h2>Step 12: Send Practice Record to Student B</h2>
+        <p>Sends practice record <strong>EXT-001</strong> to Student B's <code>/api/students</code> endpoint.</p>
+        <label for="practicePartnerUrl">Student B's Render URL:</label>
         <input
             type="url"
-            id="renderUrl"
+            id="practicePartnerUrl"
             value="https://jezalyn-indic.onrender.com/"
-            placeholder="https://classmate-project.onrender.com"
+            placeholder="https://your-classmate.onrender.com"
+            autocomplete="url"
         >
-        <button class="green" id="fetchButton" onclick="fetchClassmate()">
-            Fetch Classmate Records
-        </button>
-        <p id="classmateMessage" class="message" aria-live="polite"></p>
-        <div id="classmateResults"></div>
-    </section>
-
-    <section class="card">
-        <h2>Step 12: Send Practice Record to Student B</h2>
-        <p>The URL is prefilled with Jezalyn's Render URL. Click the button to send the EXT-001 practice record to Student B's <code>/api/students</code> POST endpoint. For Step 14, Student B must enter Student A's Render URL and repeat the same steps in reverse.</p>
-        <button class="green" id="sendPracticeButton" onclick="sendPracticeRecord()">
-            Send Practice Record
+        <button type="button" class="green" id="sendPracticeButton" onclick="sendPracticeRecord()" style="display: inline-block; padding: 14px 22px; font-size: 16px; margin-top: 14px;">
+            Send Practice Record to Student B
         </button>
         <p id="sendPracticeMessage" class="message" aria-live="polite"></p>
     </section>
@@ -633,9 +679,9 @@
         message.textContent = "Sending practice record to your configured partner...";
 
         try {
-            const url = document.getElementById("partnerUrl").value.trim();
+            const url = document.getElementById("practicePartnerUrl").value.trim();
             if (!url) {
-                throw new Error("Enter your partner's Render URL in the Partner Records field first.");
+                throw new Error("Please enter Student B's Render URL above the Send Practice Record button.");
             }
             const result = await api("/send-practice-record", {
                 method: "POST",
@@ -655,7 +701,158 @@
         }
     }
 
-    document.addEventListener("DOMContentLoaded", loadStudents);
+
+    // Integration Dashboard state and actions
+    let dashboardRemoteRecords = [];
+    let dashboardSelectedRemoteIndex = null;
+    let dashboardPartnerSource = "";
+
+    function dashboardRecordCard(student, showSource = true) {
+        const card = document.createElement("div");
+        card.className = "small-record";
+        const lines = [
+            ["Student ID", student.student_id],
+            ["Name", student.name],
+            ["Program", student.program],
+            ["Year", student.year],
+            ["Section", student.section]
+        ];
+        if (showSource) lines.push(["Source", student.source || "Local"]);
+        lines.forEach(([label, value]) => {
+            const p = document.createElement("p");
+            const strong = document.createElement("strong");
+            strong.textContent = label + ": ";
+            p.append(strong, document.createTextNode(value == null ? "" : String(value)));
+            card.appendChild(p);
+        });
+        return card;
+    }
+
+    async function refreshIntegrationDashboard() {
+        const status = document.getElementById("dashboardStatus");
+        status.textContent = "Loading local and imported records...";
+        try {
+            const students = await api("/api/students");
+            if (!Array.isArray(students)) throw new Error("The local students API did not return a list.");
+            const local = students.filter(s => !s.source || s.source.trim().toLowerCase() === "local");
+            const imported = students.filter(s => s.source && s.source.trim().toLowerCase() !== "local");
+
+            document.getElementById("localCount").textContent = local.length + (local.length === 1 ? " record" : " records");
+            document.getElementById("importedCount").textContent = imported.length + (imported.length === 1 ? " record" : " records");
+            const localContainer = document.getElementById("dashboardLocalRecords");
+            const importedContainer = document.getElementById("dashboardImportedRecords");
+            localContainer.replaceChildren();
+            importedContainer.replaceChildren();
+
+            if (!local.length) localContainer.textContent = "No local records found.";
+            else local.forEach(s => localContainer.appendChild(dashboardRecordCard(s, true)));
+            if (!imported.length) importedContainer.textContent = "No imported or external records saved yet.";
+            else imported.forEach(s => importedContainer.appendChild(dashboardRecordCard(s, true)));
+
+            status.textContent = "Dashboard refreshed. Local records: " + local.length + "; imported/external records: " + imported.length + ".";
+        } catch (error) {
+            status.textContent = "Could not refresh dashboard: " + error.message;
+        }
+    }
+
+    async function fetchDashboardPartnerRecords() {
+        const url = document.getElementById("dashboardPartnerUrl").value.trim();
+        const button = document.getElementById("dashboardFetchButton");
+        const container = document.getElementById("dashboardPartnerRecords");
+        const status = document.getElementById("dashboardStatus");
+        container.replaceChildren();
+        dashboardRemoteRecords = [];
+        dashboardSelectedRemoteIndex = null;
+        dashboardPartnerSource = "";
+        document.getElementById("dashboardSaveButton").disabled = true;
+        if (!url) {
+            status.textContent = "Enter your partner's Render URL first.";
+            return;
+        }
+        button.disabled = true;
+        button.textContent = "Retrieving...";
+        status.textContent = "Retrieving partner records...";
+        try {
+            const data = await api("/partner-records?url=" + encodeURIComponent(url));
+            if (!Array.isArray(data.records)) throw new Error("Partner API did not return a records list.");
+            dashboardRemoteRecords = data.records.filter(record => record && typeof record === "object");
+            dashboardPartnerSource = data.source || new URL(url).hostname;
+            document.getElementById("remoteCount").textContent = dashboardRemoteRecords.length + (dashboardRemoteRecords.length === 1 ? " record" : " records");
+            if (!dashboardRemoteRecords.length) {
+                container.textContent = "No partner records were returned.";
+            } else {
+                dashboardRemoteRecords.forEach((record, index) => {
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "small-record";
+                    const label = document.createElement("label");
+                    label.className = "radio-line";
+                    const radio = document.createElement("input");
+                    radio.type = "radio";
+                    radio.name = "dashboardRemoteSelection";
+                    radio.value = String(index);
+                    radio.addEventListener("change", () => {
+                        dashboardSelectedRemoteIndex = index;
+                        document.getElementById("dashboardSaveButton").disabled = false;
+                        status.textContent = "Selected " + (record.name || record.student_id || "partner record") + ". Click Save Selected Remote Record Locally to import it.";
+                    });
+                    const text = document.createElement("span");
+                    text.textContent = (record.name || "Unnamed Student") + " — " + (record.student_id || "No Student ID");
+                    label.append(radio, text);
+                    wrapper.appendChild(label);
+                    const details = document.createElement("div");
+                    details.appendChild(dashboardRecordCard({ ...record, source: dashboardPartnerSource }, true));
+                    wrapper.appendChild(details);
+                    container.appendChild(wrapper);
+                });
+            }
+            status.textContent = "Retrieved " + dashboardRemoteRecords.length + " partner record(s) from " + dashboardPartnerSource + ". Select one record to save it locally.";
+        } catch (error) {
+            document.getElementById("remoteCount").textContent = "0 records";
+            container.textContent = error.message;
+            status.textContent = "Partner retrieval failed: " + error.message;
+        } finally {
+            button.disabled = false;
+            button.textContent = "Retrieve Partner Records";
+        }
+    }
+
+    async function saveSelectedDashboardPartnerRecord() {
+        const status = document.getElementById("dashboardStatus");
+        const button = document.getElementById("dashboardSaveButton");
+        if (dashboardSelectedRemoteIndex === null || !dashboardRemoteRecords[dashboardSelectedRemoteIndex]) {
+            status.textContent = "Select a partner record before saving.";
+            return;
+        }
+        const record = dashboardRemoteRecords[dashboardSelectedRemoteIndex];
+        const source = dashboardPartnerSource || "Partner API";
+        const student = {
+            student_id: record.student_id,
+            name: record.name,
+            program: record.program,
+            year: record.year,
+            section: record.section,
+            source: source
+        };
+        button.disabled = true;
+        button.textContent = "Saving...";
+        try {
+            const saved = await api("/import-student", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(student)
+            });
+            status.textContent = (saved.message || "Record saved.") + " Source: " + (saved.source || source) + ". Database ID: " + saved.id + ".";
+            await refreshIntegrationDashboard();
+            await loadStudents();
+        } catch (error) {
+            status.textContent = "Could not save selected partner record: " + error.message;
+        } finally {
+            button.disabled = dashboardSelectedRemoteIndex === null;
+            button.textContent = "Save Selected Remote Record Locally";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => { loadStudents(); refreshIntegrationDashboard(); });
 </script>
 </body>
 </html>
